@@ -1,0 +1,53 @@
+%% 闲鱼：深度学习与智能算法
+%% 唯一官方店铺：https://mbd.pub/o/author-aWWbm3BtZw==
+%% 微信公众号：强盛机器学习，关注公众号获得更多免费代码！
+function valError = CostFunction(optVars)
+%% 赋值
+L2Regularization =abs(optVars(1)); % 正则化参数
+InitialLearnRate=abs(optVars(2)); % 初始学习率
+NumOfUnits = abs(round(optVars(3))); % 
+%%  获取数据
+Lp_train = evalin('base', 'Lp_train');
+Lt_train = evalin('base', 'Lt_train');
+
+%%  输入和输出特征个数
+inputSize    = size(Lp_train{1}, 1);
+numResponses = size(Lt_train{1}, 1);
+
+%%  设置网络结构
+opt.layers = [ ...
+    sequenceInputLayer(inputSize)       % 输入层
+
+    bilstmLayer(NumOfUnits)             % bilstm层
+
+    selfAttentionLayer(1,2)             % 创建一个单头，2个键和查询通道的自注意力层  
+
+    reluLayer                           % Relu激活层
+
+    fullyConnectedLayer(numResponses)   % 回归层
+
+    regressionLayer];
+
+%%  设置网络参数
+opt.options = trainingOptions('adam', ...             % 优化算法Adam
+    'MaxEpochs', 100, ...                            % 最大训练次数
+    'GradientThreshold', 1, ...                       % 梯度阈值
+    'InitialLearnRate', InitialLearnRate, ...         % 初始学习率
+    'LearnRateSchedule', 'piecewise', ...             % 学习率调整
+    'LearnRateDropPeriod', 80, ...                   % 训练85次后开始调整学习率
+    'LearnRateDropFactor',0.2, ...                    % 学习率调整因子
+    'L2Regularization', L2Regularization, ...         % 正则化参数
+    'ExecutionEnvironment', 'cpu',...                 % 训练环境
+    'Verbose', 1, ...                                 % 开启/关闭优化过程
+    'Plots', 'none');                                 % 不画出曲线
+
+%%  训练网络
+net = trainNetwork(Lp_train, Lt_train, opt.layers, opt.options);
+
+%%  得到网络预测值
+t_sim1 = predict(net, Lp_train); 
+
+%%  计算误差
+valError = sqrt(double(mse(Lt_train, t_sim1)));
+
+end
